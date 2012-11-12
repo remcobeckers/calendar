@@ -1,0 +1,51 @@
+@(eventForm : play.api.data.Form[Event])(implicit flash: Flash)
+
+@import helper.twitterBootstrap._
+
+@main("Event") {
+    
+      <!-- Example row of columns -->
+      <div class="row">
+        <div class="span12">
+          <h2>Edit Event</h2>
+        </div>
+      </div>
+          @helper.form(action = routes.Events.save) {
+            <fieldset>
+      <div class="row">
+        <div class="span12">
+              <input type="hidden" id="@eventForm("id").id" name="@eventForm("id").name" value="@eventForm("id").value" />
+              @helper.inputText(eventForm("title"), 'class -> "span4")
+              @helper.checkbox(eventForm("allDay"))
+        </div>
+      </div>
+      <div class="row">
+        <div class="span4">
+              @tags.inputDatePicker(eventForm("startDate"))
+        </div>
+        <div class="span4">
+              @tags.inputTimePicker(eventForm("startTime"))
+        </div>
+       </div>
+      <div class="row">
+        <div class="span4">
+              @tags.inputDatePicker(eventForm("endDate"))
+        </div>
+        <div class="span4">
+                  @tags.inputTimePicker(eventForm("endTime"))
+        </div>
+       </div>
+
+      <div class="row">
+        <div class="span12">
+              @helper.textarea(eventForm("description"), args = 'cols -> 130, 'rows -> 5, 'class -> "span6")
+        </div>
+      </div>
+      </fieldset>
+      <div class="row">
+        <div class="span12">
+            <p><input type="submit" class="btn primary" value="Save"></p>
+        </div>
+      </div>
+          }
+}

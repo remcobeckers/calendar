@@ -1,0 +1,12 @@
+application.name=Calendar
+title=Title
+startDate=Start date
+startTime=Start time
+endDate=End date
+endTime=End time
+allDay=All day
+description=Description
+company=RB
+
+error.date=No date selected
+format.boolean='

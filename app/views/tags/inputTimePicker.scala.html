@@ -1,0 +1,10 @@
+@(field: play.api.data.Field, args: (Symbol,Any)*)(implicit handler: helper.FieldConstructor, lang: play.api.i18n.Lang)
+
+@helper.input(field, args:_*) { (id, name, value, htmlArgs) =>
+ <div class="input-append bootstrap-timepicker-component">                    
+    <input type="text" name="@name" id="@id" value="@value" @toHtmlArgs(htmlArgs.toMap.updated('class, args.toMap.getOrElse('class, "") + " timepicker-default input-small"))></input>
+    <span class="add-on">
+        <i class="icon-time"></i>
+    </span>
+ </div>
+}

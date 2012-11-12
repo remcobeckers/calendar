@@ -1,0 +1,13 @@
+logs
+project/project
+project/target
+target
+tmp
+.history
+.target
+.project
+.cache
+.classpath
+.worksheet
+.settings
+bin
