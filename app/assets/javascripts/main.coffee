@@ -40,13 +40,13 @@ $ ->
         	$.post '/events/move/'+event.id, 
                     {dayDelta: dayDelta
                     minuteDelta: minuteDelta
-                    allDay: allDay},
-                    (data, textStatus, jqXHR) -> alert(data)
+                    allDay: allDay}
+#                    (data, textStatus, jqXHR) -> alert(data)
         eventResize: (event, dayDelta, minuteDelta, revertFunc, jsEvent, ui, view) ->
         	$.post '/events/resize/'+event.id, 
         	        {dayDelta: dayDelta
-        	        minuteDelta: minuteDelta},
-        	        (data, textStatus, jqXHR) -> alert(data)
+        	        minuteDelta: minuteDelta}
+#        	        (data, textStatus, jqXHR) -> alert(data)
         	
 
     

@@ -12,7 +12,7 @@ import play.api.libs.json.Json
 import org.scalaquery.session.Database
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
-import org.scalaquery.ql.extended.H2Driver.Implicit._
+import org.scalaquery.ql.extended.PostgresDriver.Implicit._
 import org.scalaquery.session.Database
 import org.scalaquery.session.Database.threadLocalSession
 import play.api.libs.json._

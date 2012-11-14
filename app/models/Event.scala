@@ -5,7 +5,7 @@ import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
 import org.scalaquery.ql._
 import org.scalaquery.ql.TypeMapper._
-import org.scalaquery.ql.extended.H2Driver.Implicit._
+import org.scalaquery.ql.extended.PostgresDriver.Implicit._
 import org.scalaquery.ql.extended.{ ExtendedTable => Table }
 import java.sql.Timestamp
 import java.text.SimpleDateFormat
@@ -50,8 +50,12 @@ object Events extends Table[Event]("event") {
   }
 
   def update(newEvent: Event) = {
-    val q = for (e <- models.Events if e.id === newEvent.id) yield e
+    val q = for (e <- Events if e.id === newEvent.id) yield e
     q.update(newEvent)
+  }
+
+  def insert(e: Event) = {
+    title ~ start ~ end ~ description ~ allDay insert (e.title, e.start, e.end, e.description, e.allDay)
   }
 
   private def addTime(d: Date, dayDelta: Int, minuteDelta: Int) = {
@@ -61,5 +65,13 @@ object Events extends Table[Event]("event") {
     startDate.add(Calendar.DAY_OF_MONTH, dayDelta)
     startDate.getTime
   }
+
+  def insertTestData = {
+    Events.title ~ Events.start ~ end ~ description ~ allDay insertAll (
+      ("Kapper", Timestamp.valueOf("2012-11-03 11:30:00"), Timestamp.valueOf("2012-11-03 12:30:00"), "Naar de kapper", false),
+      ("Verjaardag Henk", Timestamp.valueOf("2012-11-10 00:00:00"), Timestamp.valueOf("2012-11-11 00:00:00"), "Klein biertje drinken", false),
+      ("Dokter", Timestamp.valueOf("2012-11-14 08:15:00"), Timestamp.valueOf("2012-11-14 08:30:00"), "Pijn aan mijn teen", false))
+  }
+
 }
 
