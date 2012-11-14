@@ -63,7 +63,15 @@ object Events extends Controller {
   }
 
   def index = Action { implicit request =>
-    Ok(views.html.calendar())
+    val proto = for (
+      proto <- request.headers.get("x-forwarded-proto");
+      if proto == "https"
+    ) yield proto
+    Logger.info("Uri: " + request.headers)
+    if (proto == None && Play.isProd)
+      Redirect("https://" + request.domain + request.uri)
+    else
+      Ok(views.html.calendar())
   }
 
   def events(start: String, end: String) = Action { request =>
