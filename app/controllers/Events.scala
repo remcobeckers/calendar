@@ -21,8 +21,9 @@ import java.sql.Timestamp
 import java.util.Date
 import models.Event
 import java.util.Calendar
+import play.mvc.Security.Authenticated
 
-object Events extends Controller {
+object Events extends Controller with Secured {
   lazy val database = Database.forDataSource(DB.getDataSource())
 
   def includeOptionalTime(date: Date, time: Option[Date]) = {
@@ -62,88 +63,100 @@ object Events extends Controller {
       }))
   }
 
-  def index = Action { implicit request =>
-    val proto = for (
-      proto <- request.headers.get("x-forwarded-proto");
-      if proto == "https"
-    ) yield proto
-    Logger.info("Uri: " + request.headers)
-    if (proto == None && Play.isProd)
-      Redirect("https://" + request.domain + request.uri)
-    else
-      Ok(views.html.calendar())
-  }
-
-  def events(start: String, end: String) = Action { request =>
-    val json = database withSession {
-      val events = for (e <- models.Events) yield e
-      Json.toJson(events.list)
+  def index = IsAuthenticated { _ =>
+    Action {
+      implicit request =>
+        Ok(views.html.calendar())
     }
-    Ok(json).as(JSON)
   }
 
-  def edit(eventId: Int) = Action { implicit request =>
-    val event = database withSession {
-      models.Events.findById(eventId)
+  def events(start: String, end: String) = IsAuthenticated { _ =>
+    Action {
+      request =>
+        val json = database withSession {
+          val events = for (e <- models.Events) yield e
+          Json.toJson(events.list)
+        }
+        Ok(json).as(JSON)
     }
-    val form = event.map(eventForm.fill(_)) getOrElse eventForm
-    Ok(views.html.editEvent(form))
   }
 
-  def move(eventId: Int) = Action(parse.urlFormEncoded) { implicit request =>
-    val params = request.body.map({ case (k, v) => k -> v.head })
-    val msg = database withSession {
-      models.Events.findById(eventId) match {
-        case Some(event) =>
-          models.Events.move(eventId, params("dayDelta").toInt, params("minuteDelta").toInt, params("allDay").toBoolean)
-          "Event \"" + event.title + "\" moved!"
-        case None => "Event not found"
-      }
+  def edit(eventId: Int) = IsAuthenticated { _ =>
+    Action {
+      implicit request =>
+        val event = database withSession {
+          models.Events.findById(eventId)
+        }
+        val form = event.map(eventForm.fill(_)) getOrElse eventForm
+        Ok(views.html.editEvent(form))
     }
-    Ok(msg)
   }
 
-  def resize(eventId: Int) = Action(parse.urlFormEncoded) { implicit request =>
-    val params = request.body.map({ case (k, v) => k -> v.head })
-    val msg = database withSession {
-      models.Events.findById(eventId) match {
-        case Some(event) =>
-          models.Events.resize(eventId, params("dayDelta").toInt, params("minuteDelta").toInt)
-          "Event \"" + event.title + "\" resized!"
-        case None => "Event not found"
-      }
-    }
-    Ok(msg)
-  }
-
-  def newEvent(start: Option[String]) = Action { implicit request =>
-    val form = if (flash.get("error").isDefined) eventForm.bind(flash.data)
-    else if (start.isDefined) eventForm.fill(Event(None, "", start.get, start.get, "", false))
-    else eventForm
-    Ok(views.html.editEvent(form))
-  }
-
-  def save = Action { implicit request =>
-    val newEventForm = eventForm.bindFromRequest()
-
-    newEventForm.fold(
-      hasErrors = { form =>
-        Redirect(routes.Events.newEvent(None)).flashing(Flash(form.data) + ("error" -> "Het is fout"))
-      },
-      success = { newEvent =>
-        Logger.debug("event: " + newEvent)
-        val message = database withSession {
-          newEvent.id match {
-            case Some(id) =>
-              models.Events.update(newEvent)
-              "\"" + newEvent.title + "\" updated!"
-            case None =>
-              models.Events.insert(newEvent)
-              "New event \"" + newEvent.title + "\" created!"
+  def move(eventId: Int) = IsAuthenticated { _ =>
+    Action {
+      implicit request =>
+        val params = request.body.asFormUrlEncoded.get.map({ case (k, v) => k -> v.head })
+        val msg = database withSession {
+          models.Events.findById(eventId) match {
+            case Some(event) =>
+              models.Events.move(eventId, params("dayDelta").toInt, params("minuteDelta").toInt, params("allDay").toBoolean)
+              "Event \"" + event.title + "\" moved!"
+            case None => "Event not found"
           }
         }
-        Redirect(routes.Events.index).flashing("success" -> message)
-      })
+        Ok(msg)
+    }
+  }
+
+  def resize(eventId: Int) = IsAuthenticated { _ =>
+    Action {
+      implicit request =>
+        val params = request.body.asFormUrlEncoded.get.map({ case (k, v) => k -> v.head })
+        val msg = database withSession {
+          models.Events.findById(eventId) match {
+            case Some(event) =>
+              models.Events.resize(eventId, params("dayDelta").toInt, params("minuteDelta").toInt)
+              "Event \"" + event.title + "\" resized!"
+            case None => "Event not found"
+          }
+        }
+        Ok(msg)
+    }
+  }
+
+  def newEvent(start: Option[String]) = IsAuthenticated { _ =>
+    Action {
+      implicit request =>
+        val form = if (flash.get("error").isDefined) eventForm.bind(flash.data)
+        else if (start.isDefined) eventForm.fill(Event(None, "", start.get, start.get, "", false))
+        else eventForm
+        Ok(views.html.editEvent(form))
+    }
+  }
+
+  def save = IsAuthenticated { _ =>
+    Action { implicit request =>
+      val newEventForm = eventForm.bindFromRequest()
+
+      newEventForm.fold(
+        hasErrors = { form =>
+          Redirect(routes.Events.newEvent(None)).flashing(Flash(form.data) + ("error" -> "Het is fout"))
+        },
+        success = { newEvent =>
+          Logger.debug("event: " + newEvent)
+          val message = database withSession {
+            newEvent.id match {
+              case Some(id) =>
+                models.Events.update(newEvent)
+                "\"" + newEvent.title + "\" updated!"
+              case None =>
+                models.Events.insert(newEvent)
+                "New event \"" + newEvent.title + "\" created!"
+            }
+          }
+          Redirect(routes.Events.index).flashing("success" -> message)
+        })
+    }
   }
 
 }

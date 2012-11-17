@@ -1,3 +1,4 @@
+@()(implicit session: Session)
 @import play.api.Play
 @import play.api.Play.current
 
@@ -16,9 +17,7 @@
               <li><a href="#about">About</a></li>
             </ul>
             <form class="navbar-form pull-right">
-              <input class="span2" type="text" placeholder="Email">
-              <input class="span2" type="password" placeholder="Password">
-              <button type="submit" class="btn">Sign in</button>
+                <p class="navbar-text">@session.get("email").getOrElse("Please login")</p>
             </form>
           </div><!--/.nav-collapse -->
         </div>

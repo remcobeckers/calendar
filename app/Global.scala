@@ -3,7 +3,6 @@ import play.api.GlobalSettings
 import play.api.Application
 import play.api.Play.current
 import org.scalaquery.session.Database
-import models.Bars
 import org.scalaquery.ql.extended.PostgresDriver.Implicit._
 import org.scalaquery.session._
 import org.scalaquery.session.Database.threadLocalSession
@@ -39,7 +38,7 @@ object Global extends GlobalSettings {
     lazy val database = Database.forDataSource(DB.getDataSource())
 
     database.withSession {
-      createTables(List(Bars, Events))
+      createTables(List(Events))
       if (!existingTables.contains(Events.tableName)) Events.insertTestData
     }
   }

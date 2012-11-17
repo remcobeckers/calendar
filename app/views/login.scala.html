@@ -1,0 +1,13 @@
+@()(implicit flash: Flash, session: Session)
+
+@import helper.twitterBootstrap._
+
+@main("Calendar Demo") {
+      <div class="hero-unit">
+        <h1>Calendar</h1>
+        <p>Please login via your Google account</p>
+        <a href="@routes.Application.login()" class="btn">Google Login</a>
+      </div> 
+
+    
+}

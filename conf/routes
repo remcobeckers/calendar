@@ -4,8 +4,8 @@
 
 # Home page
 GET     /                           controllers.Application.index
-POST    /bars                       controllers.Application.addBar
-GET     /bars                       controllers.Application.getBars
+GET     /login                      controllers.Application.login
+GET     /openIdVerify               controllers.Application.openIdVerify
 GET     /events                     controllers.Events.index
 POST    /events/save                controllers.Events.save
 GET     /events/new                 controllers.Events.newEvent(start:Option[String] ?= None)
