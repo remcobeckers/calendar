@@ -15,6 +15,7 @@
       <div class="row">
         <div class="span12">
               <input type="hidden" id="@eventForm("id").id" name="@eventForm("id").name" value="@eventForm("id").value" />
+              <input type="hidden" id="@eventForm("userId").id" name="@eventForm("userId").name" value="@eventForm("userId").value" />
               @helper.inputText(eventForm("title"), 'class -> "span4")
               @helper.checkbox(eventForm("allDay"))
         </div>

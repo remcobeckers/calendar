@@ -21,31 +21,47 @@ import play.api.libs.openid.OpenID
 import play.api.libs.concurrent.Redeemed
 import play.api.libs.concurrent.Thrown
 import play.api.libs.iteratee._
+import models.Users
+import models.Users
 
 object Application extends Controller with Secured {
 
   lazy val database = Database.forDataSource(DB.getDataSource())
 
-  def index = Action { implicit request =>
-    Ok(views.html.login())
-  }
+  def index =
+    Action { implicit request =>
+      if (session.get("email") != None)
+        Redirect(routes.Events.index)
+      else
+        Ok(views.html.login())
+    }
 
-  def login = IsHttps {
+  def login =
     Action { implicit request =>
       val googleOpenid = "https://www.google.com/accounts/o8/id"
-      AsyncResult(OpenID.redirectURL(googleOpenid, routes.Application.openIdVerify.absoluteURL(), Seq("email" -> "http://schema.openid.net/contact/email"))
+      AsyncResult(OpenID.redirectURL(googleOpenid, routes.Application.openIdVerify.absoluteURL(),
+        Seq("email" -> "http://schema.openid.net/contact/email",
+          "firstname" -> "http://schema.openid.net/namePerson/first",
+          "lastname" -> "http://schema.openid.net/namePerson/last"))
         .extend(_.value match {
           case Redeemed(url) => Redirect(url)
           case Thrown(t) => Redirect(routes.Application.login)
         }))
     }
-  }
 
   def openIdVerify = Action { implicit request =>
     AsyncResult(
       OpenID.verifiedId.extend(_.value match {
         case Redeemed(info) => {
-          Redirect(routes.Events.index) withSession ("email" -> info.attributes("email"), "userid" -> info.id)
+          database withSession {
+            val user = Users.findOrCreate(info.id) { user =>
+              user.copy(email = info.attributes("email"), firstname = info.attributes("firstname"), lastname = info.attributes("lastname"))
+            }
+            user.id match {
+              case Some(id) => Redirect(routes.Events.index) withSession ("userid" -> id.toString)
+              case None => Redirect(routes.Application.index).flashing("error" -> "Login failed, user not found")
+            }
+          }
         }
         case Thrown(t) => {
           // Here you should look at the error, and give feedback to the user
@@ -60,44 +76,15 @@ object Application extends Controller with Secured {
  */
 trait Secured {
 
-  private def username(request: RequestHeader) = request.session.get("email")
+  private def userId(request: RequestHeader) = request.session.get("userid")
 
   /**
    * Redirect to login if the user in not authorized.
    */
   private def onUnauthorized(request: RequestHeader) = Results.Redirect(routes.Application.index)
 
-  /**
-   * Redirect to HTTPS if the user is not using HTTPS
-   */
-  private def onNotHttps()(implicit request: RequestHeader) = Results.Redirect("https://" + request.domain + request.uri).flashing("info" -> "Always using HTTPS for security purposes")
-
-  /**
-   * Action to check that https if not execute onNotHttps method
-   */
-  def IsHttps[A](action: Action[A]): Action[(Action[A], A)] = {
-
-    val authenticatedBodyParser = BodyParser { implicit request =>
-      val proto = for (
-        proto <- request.headers.get("x-forwarded-proto");
-        if proto == "https"
-      ) yield proto
-
-      if (proto == None && Play.isProd)
-        Done(Left(onNotHttps), Input.Empty)
-      else
-        action.parser(request).mapDone { body => body.right.map(innerBody => (action, innerBody)) }
-    }
-
-    Action(authenticatedBodyParser) { request =>
-      val (innerAction, innerBody) = request.body
-      innerAction(request.map(_ => innerBody))
-    }
-
-  }
-
-  def IsAuthenticated[A](action: (String) ⇒ Action[A]) = IsHttps {
-    Security.Authenticated(username, onUnauthorized)(action)
+  def IsAuthenticated[A](f: (Int) => Action[A]) = Security.Authenticated(userId, onUnauthorized) { userId =>
+    f(userId.toInt)
   }
 
 }

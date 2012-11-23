@@ -40,17 +40,10 @@ object Events extends Controller with Secured {
     "endDate" -> date,
     "endTime" -> optional(date("HH:mm")),
     "description" -> text,
-    "allDay" -> boolean)((id, title, startDate, startTime, endDate, endTime, description, allDay) => Event(id, title, includeOptionalTime(startDate, startTime), includeOptionalTime(endDate, endTime), description, allDay))((e: Event) => Some((e.id, e.title, e.start, extractOptionalTime(e, e.start), e.end, extractOptionalTime(e, e.end), e.description, e.allDay))))
+    "allDay" -> boolean,
+    "userId" -> text)((id, title, startDate, startTime, endDate, endTime, description, allDay, userId) => Event(id, title, includeOptionalTime(startDate, startTime), includeOptionalTime(endDate, endTime), description, allDay, userId.toInt))((e: Event) => Some((e.id, e.title, e.start, extractOptionalTime(e, e.start), e.end, extractOptionalTime(e, e.end), e.description, e.allDay, e.userId.toString))))
 
-  implicit object EventReads extends Format[Event] {
-    def reads(json: JsValue) = Event(
-      (json \ "id").as[Option[Int]],
-      (json \ "title").as[String],
-      (json \ "start").as[String],
-      (json \ "end").as[String],
-      (json \ "description").as[String],
-      (json \ "allDay").as[Boolean])
-
+  implicit object EventWrites extends Writes[Event] {
     def writes(ts: Event) = JsObject(Seq(
       "title" -> JsString(ts.title),
       "start" -> JsString(ts.start),
@@ -70,34 +63,34 @@ object Events extends Controller with Secured {
     }
   }
 
-  def events(start: String, end: String) = IsAuthenticated { _ =>
+  def events(start: String, end: String) = IsAuthenticated { userId =>
     Action {
       request =>
         val json = database withSession {
-          val events = for (e <- models.Events) yield e
+          val events = for (e <- models.Events if e.userId === userId) yield e
           Json.toJson(events.list)
         }
         Ok(json).as(JSON)
     }
   }
 
-  def edit(eventId: Int) = IsAuthenticated { _ =>
+  def edit(eventId: Int) = IsAuthenticated { userId =>
     Action {
       implicit request =>
         val event = database withSession {
-          models.Events.findById(eventId)
+          models.Events.findById(eventId, userId)
         }
         val form = event.map(eventForm.fill(_)) getOrElse eventForm
         Ok(views.html.editEvent(form))
     }
   }
 
-  def move(eventId: Int) = IsAuthenticated { _ =>
+  def move(eventId: Int) = IsAuthenticated { userId =>
     Action {
       implicit request =>
         val params = request.body.asFormUrlEncoded.get.map({ case (k, v) => k -> v.head })
         val msg = database withSession {
-          models.Events.findById(eventId) match {
+          models.Events.findById(eventId, userId) match {
             case Some(event) =>
               models.Events.move(eventId, params("dayDelta").toInt, params("minuteDelta").toInt, params("allDay").toBoolean)
               "Event \"" + event.title + "\" moved!"
@@ -108,12 +101,12 @@ object Events extends Controller with Secured {
     }
   }
 
-  def resize(eventId: Int) = IsAuthenticated { _ =>
+  def resize(eventId: Int) = IsAuthenticated { userId =>
     Action {
       implicit request =>
         val params = request.body.asFormUrlEncoded.get.map({ case (k, v) => k -> v.head })
         val msg = database withSession {
-          models.Events.findById(eventId) match {
+          models.Events.findById(eventId, userId) match {
             case Some(event) =>
               models.Events.resize(eventId, params("dayDelta").toInt, params("minuteDelta").toInt)
               "Event \"" + event.title + "\" resized!"
@@ -124,17 +117,17 @@ object Events extends Controller with Secured {
     }
   }
 
-  def newEvent(start: Option[String]) = IsAuthenticated { _ =>
+  def newEvent(start: Option[String]) = IsAuthenticated { userId =>
     Action {
       implicit request =>
         val form = if (flash.get("error").isDefined) eventForm.bind(flash.data)
-        else if (start.isDefined) eventForm.fill(Event(None, "", start.get, start.get, "", false))
+        else if (start.isDefined) eventForm.fill(Event(None, "", start.get, start.get, "", false, userId))
         else eventForm
         Ok(views.html.editEvent(form))
     }
   }
 
-  def save = IsAuthenticated { _ =>
+  def save = IsAuthenticated { userId =>
     Action { implicit request =>
       val newEventForm = eventForm.bindFromRequest()
 
@@ -147,7 +140,7 @@ object Events extends Controller with Secured {
           val message = database withSession {
             newEvent.id match {
               case Some(id) =>
-                models.Events.update(newEvent)
+                models.Events.update(newEvent, userId)
                 "\"" + newEvent.title + "\" updated!"
               case None =>
                 models.Events.insert(newEvent)

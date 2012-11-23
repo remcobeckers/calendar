@@ -12,7 +12,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Calendar
 
-case class Event(id: Option[Int] = None, title: String, start: Date, end: Date, description: String, allDay: Boolean) {
+case class Event(id: Option[Int] = None, title: String, start: Date, end: Date, description: String, allDay: Boolean, userId: Int) {
   //   end: Timestamp, require(start before end)
 }
 
@@ -30,10 +30,13 @@ object Events extends Table[Event]("event") {
   def end = column[Date]("end")
   def description = column[String]("description")
   def allDay = column[Boolean]("allDay")
+  def userId = column[Int]("userid")
+
+  def user = foreignKey("USER_FK", userId, Users)(_.id)
 
   // Every table needs a * projection with the same type as the table's type parameter
-  def * = id.? ~ title ~ start ~ end ~ description ~ allDay <> (Event.apply _, Event.unapply _)
-  def findById(id: Int) = (for (e <- models.Events if e.id === id) yield e).take(1).firstOption
+  def * = id.? ~ title ~ start ~ end ~ description ~ allDay ~ userId <> (Event.apply _, Event.unapply _)
+  def findById(id: Int, userId: Int) = (for (e <- models.Events if e.id === id && e.userId === userId) yield e).take(1).firstOption
 
   def move(id: Int, dayDelta: Int, minuteDelta: Int, allDay: Boolean) = {
     val q = for (e <- Events if e.id === id) yield e.id ~ e.start ~ e.end ~ e.allDay
@@ -49,13 +52,13 @@ object Events extends Table[Event]("event") {
     }
   }
 
-  def update(newEvent: Event) = {
-    val q = for (e <- Events if e.id === newEvent.id) yield e
+  def update(newEvent: Event, userId: Int) = {
+    val q = for (e <- Events if e.id === newEvent.id && e.userId === userId) yield e
     q.update(newEvent)
   }
 
   def insert(e: Event) = {
-    title ~ start ~ end ~ description ~ allDay insert (e.title, e.start, e.end, e.description, e.allDay)
+    title ~ start ~ end ~ description ~ allDay ~ userId insert (e.title, e.start, e.end, e.description, e.allDay, e.userId)
   }
 
   private def addTime(d: Date, dayDelta: Int, minuteDelta: Int) = {
