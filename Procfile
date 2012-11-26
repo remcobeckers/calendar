@@ -1,1 +1,1 @@
-web: target/start -Dhttp.port=${PORT} ${JAVA_OPTS} -Dconfig.resource=prod.conf
+web: target/start -Dhttp.port=${PORT} ${JAVA_OPTS} -Dconfig.resource=prod.conf -DapplyEvolutions.default=true

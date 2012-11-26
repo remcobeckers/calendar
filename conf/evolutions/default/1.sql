@@ -1,0 +1,24 @@
+# --- !Ups
+CREATE TABLE "event" (
+	"id" SERIAL NOT NULL PRIMARY KEY,
+	"title" VARCHAR(254) NOT NULL,
+	"start" TIMESTAMP NOT NULL,
+	"end" TIMESTAMP NOT NULL,
+	"description" VARCHAR(254) NOT NULL,
+	"allDay" BOOLEAN NOT NULL,
+	"userid" INTEGER NOT NULL);
+
+CREATE TABLE "user" (
+	"id" SERIAL NOT NULL PRIMARY KEY,
+	"openId" VARCHAR(254) NOT NULL,
+	"email" VARCHAR(254) NOT NULL,
+	"firstname" VARCHAR(254) NOT NULL,
+	"lastname" VARCHAR(254) NOT NULL);
+CREATE UNIQUE INDEX "unique_user_id_idx" ON "user"("openId");
+
+ALTER TABLE "event" ADD CONSTRAINT "USER_FK" FOREIGN KEY("userid") REFERENCES "user"("id") ON UPDATE NO ACTION ON DELETE NO ACTION;
+
+# --- !Downs
+
+DROP TABLE IF EXISTS "event";
+DROP TABLE IF EXISTS "user";

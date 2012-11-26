@@ -26,25 +26,6 @@ import org.scalaquery.ql.Query
 import play.api.Logger
 
 object Global extends GlobalSettings {
-  lazy val existingTables = makeTableMap
-
-  private def makeTableMap: Map[String, MTable] = {
-    val tableList = MTable.getTables.list()
-    tableList.map { t => (t.name.name, t) }.toMap
-  }
-
-  private def nonExistentTables(tables: Seq[ExtendedTable[_]]): Seq[DDL] = {
-    for {
-      t <- tables
-      if !existingTables.contains(t.tableName)
-    } yield t.ddl
-  }
-
-  private def createTables(tables: Seq[ExtendedTable[_]]): Unit = {
-    val newTables = nonExistentTables(tables)
-    if (newTables.size > 1) newTables.reduce(_ ++ _).create
-    else if (newTables.size == 1) newTables.head.create
-  }
 
   /**
    * Redirect to HTTPS if the user is not using HTTPS
@@ -76,18 +57,6 @@ object Global extends GlobalSettings {
   }
 
   override def onStart(app: Application) {
-    lazy val database = Database.forDataSource(DB.getDataSource())
-
-    database.withSession {
-      val addUserColumn = !existingTables.contains(Users.tableName)
-      createTables(List(Events, Users))
-      if (addUserColumn) addUserToEvents
-    }
-  }
-
-  private def addUserToEvents(implicit session: Session) = {
-    session.withPreparedStatement("ALTER TABLE event ADD COLUMN userid integer NOT NULL")(_.execute)
-    session.withPreparedStatement("""ALTER TABLE event ADD CONSTRAINT "USER_FK" FOREIGN KEY (userid) REFERENCES "user" (id) MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION""")(_.execute)
   }
 
   override def onRouteRequest(request: RequestHeader): Option[Handler] = {
