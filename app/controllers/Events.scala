@@ -1,30 +1,33 @@
 package controllers
 
-import libs.Conversions._
-import play.api._
-import play.api.GlobalSettings
+import java.util.Date
+import scala.math.BigDecimal.int2bigDecimal
+import libs.Conversions.dateToString
+import libs.Conversions.extractTimeInMillis
+import libs.Conversions.stringToDate
+import models.Event
+import play.api.Logger
 import play.api.Play.current
 import play.api.data.Form
-import play.api.data.Forms._
+import play.api.data.Forms.boolean
+import play.api.data.Forms.date
+import play.api.data.Forms.mapping
+import play.api.data.Forms.number
+import play.api.data.Forms.optional
+import play.api.data.Forms.text
 import play.api.db.DB
-import play.api.mvc._
+import play.api.libs.json.JsBoolean
+import play.api.libs.json.JsNumber
+import play.api.libs.json.JsObject
+import play.api.libs.json.JsString
 import play.api.libs.json.Json
-import org.scalaquery.session.Database
-import org.scalaquery.ql._
-import org.scalaquery.ql.TypeMapper._
-import org.scalaquery.ql.extended.PostgresDriver.Implicit._
-import org.scalaquery.session.Database
-import org.scalaquery.session.Database.threadLocalSession
-import play.api.libs.json._
-import java.text.SimpleDateFormat
-import java.sql.Timestamp
-import java.util.Date
-import models.Event
-import java.util.Calendar
-import play.mvc.Security.Authenticated
+import play.api.libs.json.Writes
+import play.api.mvc.Action
+import play.api.mvc.Controller
+import play.api.mvc.Flash
+import models.DBAccess
 
-object Events extends Controller with Secured {
-  lazy val database = Database.forDataSource(DB.getDataSource())
+object Events extends Controller with Secured with DBAccess {
 
   def includeOptionalTime(date: Date, time: Option[Date]) = {
     if (time.isDefined) new Date(date.getTime() + extractTimeInMillis(time.get)) else date
@@ -67,8 +70,8 @@ object Events extends Controller with Secured {
     Action {
       request =>
         val json = database withSession {
-          val events = for (e <- models.Events if e.userId === userId) yield e
-          Json.toJson(events.list)
+          val events = datamodel.Events.findByUserId(userId)
+          Json.toJson(events)
         }
         Ok(json).as(JSON)
     }
@@ -78,7 +81,7 @@ object Events extends Controller with Secured {
     Action {
       implicit request =>
         val event = database withSession {
-          models.Events.findById(eventId, userId)
+          datamodel.Events.findById(eventId, userId)
         }
         val form = event.map(eventForm.fill(_)) getOrElse eventForm
         Ok(views.html.editEvent(form))
@@ -90,10 +93,10 @@ object Events extends Controller with Secured {
       implicit request =>
         val params = request.body.asFormUrlEncoded.get.map({ case (k, v) => k -> v.head })
         val msg = database withSession {
-          models.Events.findById(eventId, userId) match {
+          datamodel.Events.findById(eventId, userId) match {
             case Some(event) =>
-              models.Events.move(eventId, params("dayDelta").toInt, params("minuteDelta").toInt, params("allDay").toBoolean)
-              "Event \"" + event.title + "\" moved!"
+              datamodel.Events.move(eventId, params("dayDelta").toInt, params("minuteDelta").toInt, params("allDay").toBoolean)
+              "Event \""+event.title+"\" moved!"
             case None => "Event not found"
           }
         }
@@ -105,15 +108,19 @@ object Events extends Controller with Secured {
     Action {
       implicit request =>
         val params = request.body.asFormUrlEncoded.get.map({ case (k, v) => k -> v.head })
-        val msg = database withSession {
-          models.Events.findById(eventId, userId) match {
+        database withSession {
+          datamodel.Events.findById(eventId, userId) match {
             case Some(event) =>
-              models.Events.resize(eventId, params("dayDelta").toInt, params("minuteDelta").toInt)
-              "Event \"" + event.title + "\" resized!"
-            case None => "Event not found"
+              for {
+                dayDelta <- params.get("dayDelta")
+                minuteDelta <- params.get("minuteDelta")
+              } {
+                datamodel.Events.resize(eventId, dayDelta.toInt, minuteDelta.toInt)
+              }
+              Ok("Event \""+event.title+"\" resized!")
+            case None => NotFound("Event not found")
           }
         }
-        Ok(msg)
     }
   }
 
@@ -136,15 +143,15 @@ object Events extends Controller with Secured {
           Redirect(routes.Events.newEvent(None)).flashing(Flash(form.data) + ("error" -> "Het is fout"))
         },
         success = { newEvent =>
-          Logger.debug("event: " + newEvent)
+          Logger.debug("event: "+newEvent)
           val message = database withSession {
             newEvent.id match {
               case Some(id) =>
-                models.Events.update(newEvent, userId)
-                "\"" + newEvent.title + "\" updated!"
+                datamodel.Events.update(newEvent, userId)
+                "\""+newEvent.title+"\" updated!"
               case None =>
-                models.Events.insert(newEvent)
-                "New event \"" + newEvent.title + "\" created!"
+                datamodel.Events.insert(newEvent)
+                "New event \""+newEvent.title+"\" created!"
             }
           }
           Redirect(routes.Events.index).flashing("success" -> message)

@@ -1,36 +1,21 @@
-import play.api.db.DB
-import play.api.GlobalSettings
 import play.api.Application
-import play.api.Play.current
-import org.scalaquery.session.Database
-import org.scalaquery.ql.extended.PostgresDriver.Implicit._
-import org.scalaquery.session._
-import org.scalaquery.session.Database.threadLocalSession
-import models.Events
-import models.Event
-import java.sql.Timestamp
-import org.scalaquery.meta.MTable
-import org.scalaquery.ql.extended.ExtendedTable
-import org.scalaquery.ql.DDL
-import play.api.mvc.RequestHeader
-import play.api.mvc.Handler
-import play.api.mvc.Action
-import play.api.mvc.BodyParser
+import play.api.GlobalSettings
 import play.api.Play
+import play.api.Play.current
 import play.api.libs.iteratee.Done
 import play.api.libs.iteratee.Input
+import play.api.mvc.Action
+import play.api.mvc.BodyParser
+import play.api.mvc.Handler
+import play.api.mvc.RequestHeader
 import play.api.mvc.Results
-import models.Users
-import org.scalaquery.simple.StaticQuery
-import org.scalaquery.ql.Query
-import play.api.Logger
 
 object Global extends GlobalSettings {
 
   /**
    * Redirect to HTTPS if the user is not using HTTPS
    */
-  private def onNotHttps()(implicit request: RequestHeader) = Results.Redirect("https://" + request.domain + request.uri).flashing("info" -> "Always using HTTPS for security purposes")
+  private def onNotHttps()(implicit request: RequestHeader) = Results.Redirect("https://"+request.domain + request.uri).flashing("info" -> "Always using HTTPS for security purposes")
 
   /**
    * Action to check that https if not execute onNotHttps method
@@ -60,7 +45,6 @@ object Global extends GlobalSettings {
   }
 
   override def onRouteRequest(request: RequestHeader): Option[Handler] = {
-    //TODO: Add content-security-policy headers: http://www.html5rocks.com/en/tutorials/security/content-security-policy/
     super.onRouteRequest(request).map {
       case action: Action[_] => IsHttps(action)
       case other => other
